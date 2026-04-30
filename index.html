@@ -553,8 +553,19 @@ function dayRpmText(row,day){
   return items.join(' / ');
 }
 
+function dayProblemCount(row,day){
+  let total=0;
+  Object.entries(state[row.pair_id]||{}).forEach(([k,d])=>{
+    if(d===day && k!=='basic_concept'){
+      total+=count(row,k);
+    }
+  });
+  return total;
+}
+
 function updateSummaryText(){
   let totalDays=0, dayCount={day1:0,day2:0,day3:0}, over=0, missing=0;
+  let problemCount={d1:0,d2:0,d3:0};
 
   summaryData.forEach(row=>{
     const type=unitType(row.pair_id);
@@ -568,6 +579,7 @@ function updateSummaryText(){
 
     days.forEach(d=>{
       if(dayTime(row,d)>limit()) over++;
+      problemCount[d]+=dayProblemCount(row,d);
     });
   });
 
@@ -576,6 +588,9 @@ function updateSummaryText(){
     day1 소단원: ${dayCount.day1}개 /
     day2 소단원: ${dayCount.day2}개 /
     day3 소단원: ${dayCount.day3}개 /
+    <b>day1 문항수:</b> ${problemCount.d1}문항 /
+    <b>day2 문항수:</b> ${problemCount.d2}문항 /
+    <b>day3 문항수:</b> ${problemCount.d3}문항 /
     기준시간 초과: ${over}건 /
     미완성 소단원: ${missing}개
   `;
@@ -587,17 +602,30 @@ function updateSummaryText(){
 function downloadCSV(){
   const rows=[[
     'basic_unit_id','rpm_unit_id','type',
-    'day1_basic','day1_rpm','day1_basic_time','day1_rpm_time','day1_total_time',
-    'day2_basic','day2_rpm','day2_basic_time','day2_rpm_time','day2_total_time',
-    'day3_basic','day3_rpm','day3_basic_time','day3_rpm_time','day3_total_time',
+    'day1_problem_count','day2_problem_count','day3_problem_count',
+    'day1_basic_time','day1_rpm_time','day1_total_time',
+    'day2_basic_time','day2_rpm_time','day2_total_time',
+    'day3_basic_time','day3_rpm_time','day3_total_time',
+    'day1_basic_detail','day1_rpm_detail',
+    'day2_basic_detail','day2_rpm_detail',
+    'day3_basic_detail','day3_rpm_detail',
     'missing'
   ]];
 
   let totalDays=0;
+  let totalProblems={d1:0,d2:0,d3:0};
 
   summaryData.forEach(row=>{
     const type=unitType(row.pair_id);
     if(type!=='-') totalDays+=Number(type.replace('day',''));
+
+    const d1Count=dayProblemCount(row,'d1');
+    const d2Count=dayProblemCount(row,'d2');
+    const d3Count=dayProblemCount(row,'d3');
+
+    totalProblems.d1+=d1Count;
+    totalProblems.d2+=d2Count;
+    totalProblems.d3+=d3Count;
 
     const missing=activeKeys(row)
       .filter(k=>!Object.keys(state[row.pair_id]||{}).includes(k))
@@ -607,15 +635,39 @@ function downloadCSV(){
       row.basic_unit,
       row.rpm_unit,
       type,
-      dayBasicText(row,'d1'), dayRpmText(row,'d1'), dayBasicTime(row,'d1').toFixed(1), dayRpmTime(row,'d1').toFixed(1), dayTime(row,'d1').toFixed(1),
-      dayBasicText(row,'d2'), dayRpmText(row,'d2'), dayBasicTime(row,'d2').toFixed(1), dayRpmTime(row,'d2').toFixed(1), dayTime(row,'d2').toFixed(1),
-      dayBasicText(row,'d3'), dayRpmText(row,'d3'), dayBasicTime(row,'d3').toFixed(1), dayRpmTime(row,'d3').toFixed(1), dayTime(row,'d3').toFixed(1),
+
+      d1Count,
+      d2Count,
+      d3Count,
+
+      dayBasicTime(row,'d1').toFixed(1),
+      dayRpmTime(row,'d1').toFixed(1),
+      dayTime(row,'d1').toFixed(1),
+
+      dayBasicTime(row,'d2').toFixed(1),
+      dayRpmTime(row,'d2').toFixed(1),
+      dayTime(row,'d2').toFixed(1),
+
+      dayBasicTime(row,'d3').toFixed(1),
+      dayRpmTime(row,'d3').toFixed(1),
+      dayTime(row,'d3').toFixed(1),
+
+      dayBasicText(row,'d1'),
+      dayRpmText(row,'d1'),
+      dayBasicText(row,'d2'),
+      dayRpmText(row,'d2'),
+      dayBasicText(row,'d3'),
+      dayRpmText(row,'d3'),
+
       missing.join(' / ')
     ]);
   });
 
   rows.push([]);
   rows.push(['요약',`총 예상 소요일: ${totalDays}일`]);
+  rows.push(['요약',`Day1 총 문항수: ${totalProblems.d1}문항`]);
+  rows.push(['요약',`Day2 총 문항수: ${totalProblems.d2}문항`]);
+  rows.push(['요약',`Day3 총 문항수: ${totalProblems.d3}문항`]);
 
   const csv='\ufeff'+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
@@ -623,7 +675,7 @@ function downloadCSV(){
 
   const a=document.createElement('a');
   a.href=url;
-  a.download='middle_basic_rpm_day3_split_time_schedule.csv';
+  a.download='high_basic_rpm_final_schedule.csv';
   a.click();
 
   URL.revokeObjectURL(url);
