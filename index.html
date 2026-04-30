@@ -42,6 +42,15 @@ th{background:#f5f5f5}
 
 <h2>3. Day 스케줄</h2>
 <div class="control-box">
+  <b>학습 수준</b><br>
+  <select id="studentLevel" onchange="applyLevelFilter()">
+    <option value="low">하위권</option>
+    <option value="mid" selected>중위권</option>
+    <option value="high">상위권</option>
+  </select>
+
+  <br><br>
+
   <b>하루 기준 시간</b><br>
   <select id="dailyLimit" onchange="refreshAll()">
     <option value="60">60분</option>
@@ -52,6 +61,7 @@ th{background:#f5f5f5}
   <button onclick="autoScheduleBasic()">통합 기본형 자동분배</button>
   <button onclick="autoScheduleByLimit()">기준시간 맞춤형 자동분배</button>
   <button onclick="downloadCSV()">⬇️ 다운로드</button>
+  <p class="small">하위권 선택 시 기본서: 발전 예제/발전 확인/특강 예제/특강 확인/step2/실력 UP 제외, RPM: 유형UP 대표 문제/유형UP 유형 문제/시꼭문 실력UP 제외</p>
 </div>
 
 <table id="schedule"></table>
@@ -102,6 +112,28 @@ const rpmDay1=[
   'rpm_유형UP 유형 문제'
 ];
 
+const lowExcludedKeys=[
+  'basic_발전 예제',
+  'basic_발전 확인',
+  'basic_특강 예제',
+  'basic_특강 확인',
+  'basic_step2',
+  'basic_실력 UP',
+  'rpm_유형UP 대표 문제',
+  'rpm_유형UP 유형 문제',
+  'rpm_시꼭문 실력UP'
+];
+
+function studentLevel(){
+  const el=document.getElementById('studentLevel');
+  return el ? el.value : 'mid';
+}
+
+function isAllowedKey(k){
+  if(studentLevel()==='low') return !lowExcludedKeys.includes(k);
+  return true;
+}
+
 const label=k=>{
   if(k==='basic_concept') return '개념영상';
   if(k.startsWith('basic_')) return k.replace('basic_','');
@@ -119,6 +151,18 @@ const shortLabel=k=>{
 const limit=()=>Number(document.getElementById('dailyLimit').value||120);
 const save=()=>localStorage.setItem('high_combined_order_matched_split_state',JSON.stringify(state));
 const load=()=>state=JSON.parse(localStorage.getItem('high_combined_order_matched_split_state')||'{}');
+
+function applyLevelFilter(){
+  if(studentLevel()==='low'){
+    Object.keys(state).forEach(pair=>{
+      Object.keys(state[pair]||{}).forEach(k=>{
+        if(!isAllowedKey(k)) delete state[pair][k];
+      });
+    });
+    save();
+  }
+  renderSchedule();
+}
 
 function resetSchedule(){
   state={};
@@ -259,7 +303,7 @@ function emptyRpmUnit(unit=''){
   return obj;
 }
 
-function activeKeys(row){return keys.filter(k=>row[k]>0);}
+function activeKeys(row){return keys.filter(k=>row[k]>0 && isAllowedKey(k));}
 function activeBasicKeys(row){return activeKeys(row).filter(k=>k==='basic_concept'||k.startsWith('basic_'));}
 function activeRpmKeys(row){return activeKeys(row).filter(k=>k.startsWith('rpm_'));}
 function count(row,k){return row[k+'_count']||0;}
@@ -471,15 +515,15 @@ function autoScheduleBasic(){
     state[pair]={};
 
     basicDay1.forEach(k=>{
-      if(row[k]>0) state[pair][k]='d1';
+      if(row[k]>0 && isAllowedKey(k)) state[pair][k]='d1';
     });
 
     rpmDay1.forEach(k=>{
-      if(row[k]>0) state[pair][k]='d1';
+      if(row[k]>0 && isAllowedKey(k)) state[pair][k]='d1';
     });
 
     keys.forEach(k=>{
-      if(row[k]>0 && !state[pair][k]) state[pair][k]='d2';
+      if(row[k]>0 && isAllowedKey(k) && !state[pair][k]) state[pair][k]='d2';
     });
   });
 
