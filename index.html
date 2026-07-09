@@ -1,3 +1,18 @@
+고등 버전에 RPM만 모드까지 반영했습니다. 중등 버전도 같은 구조라 동일하게 3-way 토글로 맞춰둘게요.
+
+두 파일 모두 3-way 토글(기본서+RPM / 기본서만 / RPM만)로 완성했습니다. 전체 파일을 다시 드립니다.
+
+**변경 핵심 3곳** (기본서만 버전 대비 추가/수정):
+
+1. 라디오 버튼에 `RPM만` 옵션 추가, 기본서 파일 입력도 `basicFileGroup`으로 감싸서 토글 대상에 포함
+2. `applyMode()`가 모드에 따라 두 입력 그룹을 각각 숨김/표시
+3. `handleFiles()`가 `rpmOnly`일 땐 기본서 파일을 건너뛰고 `basicRows=[]`로 계산
+
+`compute()` 로직은 원래도 기본서/RPM 어느 한쪽이 비어도 대칭적으로 처리하도록 되어 있어서(둘 다 `emptyXxxUnit()`으로 채움), RPM만 모드에서도 추가 수정 없이 자연스럽게 RPM 시간만으로 스케줄이 계산됩니다.
+
+**전체 파일** (위 Read 결과가 최종본입니다 — 그대로 복사해서 고등 `index.html`에 덮어쓰세요):
+
+```html
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -33,8 +48,9 @@ th{background:#f5f5f5}
   <b>학습 모드</b><br>
   <label><input type="radio" name="learnMode" value="both" checked onchange="applyMode()"> 기본서 + RPM</label>
   <label><input type="radio" name="learnMode" value="basicOnly" onchange="applyMode()"> 기본서만</label>
+  <label><input type="radio" name="learnMode" value="rpmOnly" onchange="applyMode()"> RPM만</label>
   <br><br>
-  <b>기본서 파일</b><br><input type="file" id="basicFile" accept=".xlsx,.xls"><br>
+  <span id="basicFileGroup"><b>기본서 파일</b><br><input type="file" id="basicFile" accept=".xlsx,.xls"><br></span>
   <span id="rpmFileGroup"><b>RPM 파일</b><br><input type="file" id="rpmFile" accept=".xlsx,.xls"><br></span>
   <button onclick="handleFiles()">파일 읽기</button>
   <button onclick="resetSchedule()">선택 초기화</button>
@@ -139,7 +155,9 @@ function learnMode(){
 }
 
 function applyMode(){
-  document.getElementById('rpmFileGroup').style.display = learnMode()==='basicOnly' ? 'none' : '';
+  const mode=learnMode();
+  document.getElementById('basicFileGroup').style.display = mode==='rpmOnly' ? 'none' : '';
+  document.getElementById('rpmFileGroup').style.display = mode==='basicOnly' ? 'none' : '';
 }
 
 function isAllowedKey(k){
@@ -207,11 +225,11 @@ async function handleFiles(){
   const rpmFile=document.getElementById('rpmFile').files[0];
   const mode=learnMode();
 
-  if(!basicFile) return alert('기본서 파일을 선택해주세요.');
-  if(mode==='both' && !rpmFile) return alert('RPM 파일을 선택해주세요.');
+  if(mode!=='rpmOnly' && !basicFile) return alert('기본서 파일을 선택해주세요.');
+  if(mode!=='basicOnly' && !rpmFile) return alert('RPM 파일을 선택해주세요.');
 
-  const basicRows=await readFile(basicFile);
-  const rpmRows=(mode==='basicOnly' || !rpmFile) ? [] : await readFile(rpmFile);
+  const basicRows=(mode==='rpmOnly') ? [] : await readFile(basicFile);
+  const rpmRows=(mode==='basicOnly') ? [] : await readFile(rpmFile);
 
   state={};
   localStorage.removeItem('high_combined_order_matched_split_state');
@@ -742,3 +760,6 @@ function downloadCSV(){
 </script>
 </body>
 </html>
+```
+
+중등 버전 `index.html`도 동일하게 `RPM만` 모드를 추가해뒀습니다 — 필요하시면 그 파일도 다시 통째로 드릴게요.
